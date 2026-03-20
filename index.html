@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Material Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0e0e; --surface: #161616; --border: #2a2a2a;
+      --accent: #e8ff4a; --accent2: #4affd4; --text: #e0e0e0;
+      --muted: #666; --danger: #ff4a4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; padding: 40px 20px; }
+    .container { max-width: 720px; margin: 0 auto; }
+    header { margin-bottom: 48px; border-left: 3px solid var(--accent); padding-left: 16px; }
+    header h1 { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; letter-spacing: 0.05em; color: var(--accent); }
+    header p { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 300; }
+    .search-row { display: flex; gap: 10px; margin-bottom: 32px; }
+    input[type="text"] { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 14px; padding: 12px 16px; outline: none; transition: border-color 0.2s; }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--muted); }
+    button.primary { background: var(--accent); color: #0e0e0e; border: none; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; padding: 12px 24px; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; }
+    button.primary:hover { opacity: 0.85; }
+    button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status-bar { display: none; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+    .status-bar.visible { display: flex; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .status-dot.pulse { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .progress-section { margin-bottom: 24px; display: none; }
+    .progress-section.visible { display: block; }
+    .progress-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .progress-track { height: 2px; background: var(--border); }
+    .progress-fill { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+    .attribute-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 4px 10px; border: 1px solid var(--border); color: var(--muted); letter-spacing: 0.04em; }
+    .chip.done { border-color: var(--accent2); color: var(--accent2); }
+    .chip.active { border-color: var(--accent); color: var(--accent); }
+    .chip.skipped { border-color: var(--danger); color: var(--danger); opacity: 0.6; }
+    .notification { padding: 12px 16px; border: 1px solid var(--border); border-left: 3px solid var(--danger); font-size: 13px; color: var(--muted); margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; display: none; animation: fadeIn 0.3s ease; }
+    .notification.visible { display: block; }
+    .question-card { background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--accent); padding: 24px; margin-bottom: 24px; display: none; animation: fadeIn 0.3s ease; }
+    .question-card.visible { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .question-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+    .question-text { font-size: 16px; font-weight: 400; line-height: 1.5; margin-bottom: 20px; }
+    .answers-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    button.answer-btn { background: transparent; border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 10px 18px; cursor: pointer; transition: all 0.15s; }
+    button.answer-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,255,74,0.05); }
+    .results-section { display: none; animation: fadeIn 0.4s ease; }
+    .results-section.visible { display: block; }
+    .results-header { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .result-item { padding: 16px; border: 1px solid var(--border); margin-bottom: 8px; transition: border-color 0.2s; }
+    .result-item:hover { border-color: var(--accent2); }
+    .result-desc { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .result-attrs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .attr-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 3px 8px; background: rgba(74,255,212,0.08); border: 1px solid rgba(74,255,212,0.2); color: var(--accent2); }
+    .no-result { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--danger); padding: 20px 0; }
+    .result-group.has-duplicates { border-color: #ff9a3c; }
+    .result-group.has-duplicates .group-attrs { background: rgba(255,154,60,0.08); }
+    .duplicate-warning { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #ff9a3c; padding: 4px 16px 8px; letter-spacing: 0.06em; }
+    .attr-tag-warning { background: rgba(255,154,60,0.12); border-color: #ff9a3c; color: #ff9a3c; }
+    .result-group { border: 1px solid var(--border); margin-bottom: 16px; transition: border-color 0.2s; }
+    .result-group:hover { border-color: var(--accent2); }
+    .group-attrs { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px; background: rgba(74,255,212,0.04); }
+    .group-divider { height: 1px; background: var(--border); }
+    .group-descriptions { list-style: none; padding: 12px 16px; }
+    .group-descriptions li { font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+    .group-descriptions li:last-child { border-bottom: none; }
+    .group-descriptions li::before { content: "→ "; color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>MATERIAL CLASSIFIER</h1>
+    <p>Enter a material description to begin classification</p>
+  </header>
+  <div class="search-row">
+    <input type="text" id="description" placeholder="e.g. pump, valve, filter...">
+    <button class="primary" id="startBtn" onclick="start()">START</button>
+  </div>
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Ready</span>
+  </div>
+  <div class="progress-section" id="progressSection">
+    <div class="progress-label">Attribute Progress — <span id="progressCount">0 / 0</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="attribute-chips" id="attributeChips"></div>
+  </div>
+  <div class="notification" id="notification"></div>
+  <div class="question-card" id="questionCard">
+    <div class="question-meta" id="questionMeta">QUESTION</div>
+    <div class="question-text" id="questionText"></div>
+    <div class="answers-grid" id="answersGrid"></div>
+  </div>
+  <div class="results-section" id="resultsSection">
+    <div class="results-header" id="resultsHeader">RESULTS</div>
+    <div id="resultsList"></div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL = "https://unrxvudtsfcdvhrdnzeh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucnh2dWR0c2ZjZHZocmRuemVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzAyMTEsImV4cCI6MjA4OTM0NjIxMX0.Y2KZqDwJLpvq4VywlwZUCpKyF4FYRG-8AAPNhDMGmZQ";
+
+let candidates = [];
+let attributes = [];
+let currentAttrIndex = 0;
+let attrStatus = {};
+let allClassifications = [];
+let allAAM = [];
+let allQuestions = [];
+let allAnswers = [];
+let allAttrValues = [];
+let askedQuestions = new Set();
+
+function dbFetch(path) {
+  return fetch(`${SUPABASE_URL}${path}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Range-Unit": "items",
+      "Prefer": "count=none"
+    }
+  });
+}
+
+function setStatus(text, pulse = false) {
+  document.getElementById("statusBar").classList.add("visible");
+  document.getElementById("statusText").innerText = text;
+  document.getElementById("statusDot").classList.toggle("pulse", pulse);
+}
+
+function showNotification(text) {
+  const n = document.getElementById("notification");
+  n.innerText = text;
+  n.classList.add("visible");
+  setTimeout(() => n.classList.remove("visible"), 3500);
+}
+
+function updateProgress() {
+  const total = attributes.length;
+  const done = Object.values(attrStatus).filter(s => s === "done" || s === "skipped").length;
+  document.getElementById("progressCount").innerText = `${done} / ${total}`;
+  document.getElementById("progressFill").style.width = total ? `${(done / total) * 100}%` : "0%";
+  const chips = document.getElementById("attributeChips");
+  chips.innerHTML = "";
+  attributes.forEach(attr => {
+    const chip = document.createElement("div");
+    chip.className = "chip " + (attrStatus[attr.id] || "");
+    chip.innerText = attr.name;
+    chips.appendChild(chip);
+  });
+}
+
+function getBestQuestionForAttr(candidateIds, attrId) {
+  const relevantSC = allClassifications.filter(sc =>
+    candidateIds.includes(sc.sample_id) && sc.attribute_id === attrId
+  );
+  const questionCount = {};
+  relevantSC.forEach(sc => {
+    allAAM.filter(aam => aam.attribute_id === sc.attribute_id && aam.value_id === sc.value_id)
+      .forEach(aam => {
+        const answer = allAnswers.find(a => a.id === aam.answer_id);
+        if (answer) questionCount[answer.question_id] = (questionCount[answer.question_id] || 0) + 1;
+      });
+  });
+  if (Object.keys(questionCount).length === 0) return null;
+  return parseInt(Object.entries(questionCount).sort((a, b) => b[1] - a[1])[0][0]);
+}
+
+function filterByAnswer(candidateIds, answerId) {
+  const mappings = allAAM.filter(aam => aam.answer_id === answerId);
+  if (mappings.length === 0) return candidateIds;
+
+  // Group mappings by attribute_id
+  // For each attribute: candidate must match ONE of the allowed values (OR within attribute)
+  // Candidate must satisfy ALL attributes (AND between attributes)
+  const byAttr = {};
+  mappings.forEach(aam => {
+    if (!byAttr[aam.attribute_id]) byAttr[aam.attribute_id] = [];
+    byAttr[aam.attribute_id].push(aam.value_id);
+  });
+
+  const attrIds = Object.keys(byAttr).map(Number);
+
+  const filtered = candidateIds.filter(cid => {
+    return attrIds.every(attrId => {
+      const allowedValues = byAttr[attrId];
+      return allClassifications.some(sc =>
+        sc.sample_id === cid &&
+        sc.attribute_id === attrId &&
+        allowedValues.includes(sc.value_id)
+      );
+    });
+  });
+
+  return filtered.length > 0 ? filtered : candidateIds;
+}
+
+async function start() {
+  candidates = []; attributes = []; currentAttrIndex = 0; attrStatus = {};
+  allClassifications = []; allAAM = []; allQuestions = []; allAnswers = []; allAttrValues = []; askedQuestions = new Set();
+
+  document.getElementById("resultsSection").classList.remove("visible");
+  document.getElementById("questionCard").classList.remove("visible");
+  document.getElementById("progressSection").classList.remove("visible");
+  document.getElementById("notification").classList.remove("visible");
+  document.getElementById("startBtn").disabled = true;
+
+  const text = document.getElementById("description").value.trim();
+  if (!text) { document.getElementById("startBtn").disabled = false; return; }
+
+  setStatus("Searching materials...", true);
+
+  // 1. Get matching samples
+  const samplesRes = await dbFetch(`/rest/v1/material_samples?description=ilike.*${encodeURIComponent(text)}*&select=id,description`);
+  const allSamples = await samplesRes.json();
+
+  if (allSamples.length === 0) {
+    setStatus("No materials found.", false);
+    document.getElementById("startBtn").disabled = false;
+    return;
+  }
+
+  const sampleIds = allSamples.map(s => s.id);
+  console.log("Samples found:", sampleIds.length, sampleIds.slice(0,5));
+
+  setStatus(`${allSamples.length} samples found. Loading classifications...`, true);
+
+  // 2. Get classifications only for these sample IDs (in chunks if needed)
+  const chunkSize = 100;
+  let scResults = [];
+  for (let i = 0; i < sampleIds.length; i += chunkSize) {
+    const chunk = sampleIds.slice(i, i + chunkSize);
+    const inFilter = chunk.join(",");
+    const scRes = await dbFetch(`/rest/v1/sample_classification?sample_id=in.(${inFilter})`);
+    const scData = await scRes.json();
+    scResults = scResults.concat(scData);
+  }
+
+  allClassifications = scResults;
+  console.log("Classifications loaded:", allClassifications.length);
+
+  // 3. Only keep samples that have classifications
+  const classifiedIds = new Set(allClassifications.map(sc => sc.sample_id));
+  candidates = allSamples.filter(s => classifiedIds.has(s.id));
+
+  console.log("Classified candidates:", candidates.length);
+
+  if (candidates.length === 0) {
+    setStatus("No classified materials found.", false);
+    document.getElementById("startBtn").disabled = false;
+    return;
+  }
+
+  // 4. Load rest of data in parallel
+  setStatus(`${candidates.length} candidates found. Loading questions...`, true);
+
+  const [attrsRes, aamRes, questionsRes, answersRes, avRes] = await Promise.all([
+    dbFetch(`/rest/v1/attributes?order=id`),
+    dbFetch(`/rest/v1/answer_attribute_mapping`),
+    dbFetch(`/rest/v1/questions`),
+    dbFetch(`/rest/v1/question_answers`),
+    dbFetch(`/rest/v1/attribute_values`)
+  ]);
+
+  attributes    = await attrsRes.json();
+  allAAM        = await aamRes.json();
+  allQuestions  = await questionsRes.json();
+  allAnswers    = await answersRes.json();
+  allAttrValues = await avRes.json();
+
+  console.log("AAM:", allAAM.length, "Answers:", allAnswers.length, "Questions:", allQuestions.length);
+
+  document.getElementById("startBtn").disabled = false;
+  attributes.forEach(a => attrStatus[a.id] = "");
+  document.getElementById("progressSection").classList.add("visible");
+  updateProgress();
+  setStatus(`${candidates.length} candidates — starting classification`, false);
+
+  processNextAttribute();
+}
+
+function processNextAttribute() {
+  if (candidates.length === 1) { showResult(); return; }
+
+  while (currentAttrIndex < attributes.length) {
+    const s = attrStatus[attributes[currentAttrIndex].id];
+    if (!s || s === "") break;
+    currentAttrIndex++;
+  }
+
+  if (currentAttrIndex >= attributes.length) { showResult(); return; }
+
+  const attr = attributes[currentAttrIndex];
+  attrStatus[attr.id] = "active";
+  updateProgress();
+
+  const candidateIds = candidates.map(c => c.id);
+  const questionId = getBestQuestionForAttr(candidateIds, attr.id);
+
+  console.log(`Attr: ${attr.name} (${attr.id}) → questionId: ${questionId}`);
+
+  if (!questionId || askedQuestions.has(questionId)) {
+    attrStatus[attr.id] = "skipped";
+    updateProgress();
+    if (!questionId) showNotification(`ℹ No question available for: ${attr.name}`);
+    currentAttrIndex++;
+    setTimeout(processNextAttribute, 800);
+    return;
+  }
+
+  askedQuestions.add(questionId);
+  loadQuestion(questionId, attr.name);
+}
+
+function loadQuestion(questionId, attrName) {
+  const question = allQuestions.find(q => q.id === questionId);
+  const answers = allAnswers.filter(a => a.question_id === questionId);
+
+  document.getElementById("questionMeta").innerText = `ATTRIBUTE — ${attrName.toUpperCase()}`;
+  document.getElementById("questionText").innerText = question?.question_text || "No question text";
+
+  const grid = document.getElementById("answersGrid");
+  grid.innerHTML = "";
+  answers.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "answer-btn";
+    btn.innerText = a.answer_text;
+    btn.onclick = () => applyAnswer(a.id);
+    grid.appendChild(btn);
+  });
+
+  document.getElementById("questionCard").classList.add("visible");
+  setStatus(`${candidates.length} candidates remaining`, false);
+}
+
+function applyAnswer(answerId) {
+  document.getElementById("questionCard").classList.remove("visible");
+  setStatus("Filtering candidates...", true);
+
+  const candidateIds = candidates.map(c => c.id);
+  const filteredIds = filterByAnswer(candidateIds, answerId);
+  candidates = candidates.filter(c => filteredIds.includes(c.id));
+
+  const attr = attributes[currentAttrIndex];
+  attrStatus[attr.id] = "done";
+  currentAttrIndex++;
+  updateProgress();
+  setStatus(`${candidates.length} candidates remaining`, false);
+
+  if (candidates.length === 1) { showResult(); return; }
+  processNextAttribute();
+}
+
+function showResult() {
+  document.getElementById("questionCard").classList.remove("visible");
+
+  if (candidates.length === 0) {
+    document.getElementById("resultsList").innerHTML = `<div class="no-result">No matching materials found.</div>`;
+    document.getElementById("resultsHeader").innerText = "RESULTS — 0 MATCHES";
+    document.getElementById("resultsSection").classList.add("visible");
+    setStatus("Classification complete.", false);
+    return;
+  }
+
+  const attrMap = {};
+  attributes.forEach(a => attrMap[a.id] = a.name);
+
+  const valueMap = {};
+  allAttrValues.forEach(v => valueMap[v.id] = v.value);
+
+  const candidateIds = candidates.map(c => c.id);
+
+  // Build classMap: sample_id -> sorted list of "AttrName: Value" strings
+  const classMap = {};
+  allClassifications.forEach(sc => {
+    if (!candidateIds.includes(sc.sample_id)) return;
+    if (!classMap[sc.sample_id]) classMap[sc.sample_id] = [];
+    classMap[sc.sample_id].push({
+      attrId: sc.attribute_id,
+      attr: attrMap[sc.attribute_id] || `Attr ${sc.attribute_id}`,
+      value: valueMap[sc.value_id] || `Value ${sc.value_id}`
+    });
+  });
+
+  // Merge multiple values for same attribute into one entry
+  const mergedClassMap = {};
+  Object.keys(classMap).forEach(sid => {
+    const byAttr = {};
+    classMap[sid].forEach(a => {
+      if (!byAttr[a.attrId]) byAttr[a.attrId] = { attrId: a.attrId, attr: a.attr, values: [] };
+      if (!byAttr[a.attrId].values.includes(a.value)) byAttr[a.attrId].values.push(a.value);
+    });
+    mergedClassMap[sid] = Object.values(byAttr).sort((a, b) => a.attrId - b.attrId);
+  });
+
+  // Group candidates by their attribute signature
+  const groups = {};
+  candidates.forEach(c => {
+    const attrs = mergedClassMap[c.id] || [];
+    const key = attrs.map(a => `${a.attrId}:${a.values.join("/")}`).join('|');
+    if (!groups[key]) groups[key] = { attrs, descriptions: [] };
+    groups[key].descriptions.push(c.description);
+  });
+
+  document.getElementById("resultsHeader").innerText =
+    `RESULTS — ${candidates.length} MATCH${candidates.length !== 1 ? "ES" : ""}`;
+
+  const list = document.getElementById("resultsList");
+  list.innerHTML = "";
+
+  Object.values(groups).forEach(group => {
+    const box = document.createElement("div");
+    box.className = "result-group";
+
+    // Attributes header
+    if (group.attrs.length > 0) {
+      const attrsDiv = document.createElement("div");
+      attrsDiv.className = "group-attrs";
+      group.attrs.forEach(a => {
+        const tag = document.createElement("span");
+        tag.className = "attr-tag" + (a.values.length > 1 ? " attr-tag-warning" : "");
+        tag.innerText = `${a.attr}: ${a.values.join(" / ")}`;
+        attrsDiv.appendChild(tag);
+      });
+      box.appendChild(attrsDiv);
+    }
+
+    // Divider
+    const divider = document.createElement("div");
+    divider.className = "group-divider";
+    box.appendChild(divider);
+
+    // Description list
+    const descList = document.createElement("ul");
+    descList.className = "group-descriptions";
+    group.descriptions.forEach(desc => {
+      const li = document.createElement("li");
+      li.innerText = desc;
+      descList.appendChild(li);
+    });
+    box.appendChild(descList);
+
+    list.appendChild(box);
+  });
+
+  document.getElementById("resultsSection").classList.add("visible");
+  setStatus(`Classification complete — ${candidates.length} result${candidates.length !== 1 ? "s" : ""}`, false);
+}
+</script>
+</body>
+</html>
